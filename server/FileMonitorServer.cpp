@@ -106,8 +106,9 @@ void FileMonitorServer::onMonitoringChangeRequested(quint64 sessionId, quint64 r
 void FileMonitorServer::broadcastReadyEvents()
 {
     for (pb::FileEvent& event : m_collector.takeReady()) {
-        qInfo().noquote() << "File" << eventTypeName(event.type()) << ':'
-                          << QString::fromStdString(event.file_name());
+        qInfo().noquote() << QStringLiteral("File %1: %2")
+                                 .arg(QLatin1String(eventTypeName(event.type())),
+                                      QString::fromStdString(event.file_name()));
         pb::Envelope envelope;
         *envelope.mutable_file_event() = std::move(event);
         broadcast(envelope);

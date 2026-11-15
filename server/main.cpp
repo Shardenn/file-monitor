@@ -1,14 +1,39 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QFileInfo>
 #include <QLoggingCategory>
+
+#include <cstdio>
 
 #include "common/Protocol.h"
 #include "server/FileMonitorServer.h"
 #include "server/ShutdownSignal.h"
 
 namespace {
+
+// Qt on Windows sends log messages to the debugger when stderr is not a
+// console (for example when the output is redirected to a file). A server
+// log must always be visible, so messages are written to stderr here.
+void logToStderr(QtMsgType type, const QMessageLogContext&, const QString& message)
+{
+    const char* level = "INFO ";
+    if (type == QtWarningMsg)
+        level = "WARN ";
+    else if (type == QtCriticalMsg || type == QtFatalMsg)
+        level = "ERROR";
+    else if (type == QtDebugMsg)
+        level = "DEBUG";
+
+    const QByteArray line = QStringLiteral("%1 %2 %3\n")
+                                .arg(QDateTime::currentDateTime().toString(
+                                         QStringLiteral("yyyy-MM-dd HH:mm:ss.zzz")),
+                                     QLatin1String(level), message)
+                                .toLocal8Bit();
+    std::fwrite(line.constData(), 1, static_cast<size_t>(line.size()), stderr);
+    std::fflush(stderr);
+}
 
 int runServer(QCoreApplication& app)
 {
@@ -55,7 +80,8 @@ int runServer(QCoreApplication& app)
 
     fm::FileMonitorServer server(directory);
     if (!server.listen(address, static_cast<quint16>(port))) {
-        qCritical().noquote() << "Cannot listen on port" << port << ':' << server.errorString();
+        qCritical().noquote()
+            << QStringLiteral("Cannot listen on port %1: %2").arg(port).arg(server.errorString());
         return 1;
     }
     qInfo().noquote() << "Watching" << QDir::toNativeSeparators(directory);
@@ -74,6 +100,7 @@ int runServer(QCoreApplication& app)
 
 int main(int argc, char* argv[])
 {
+    qInstallMessageHandler(logToStderr);
     QCoreApplication app(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("fm_server"));
     QCoreApplication::setApplicationVersion(QStringLiteral("1.0.0"));
