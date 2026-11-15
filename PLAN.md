@@ -74,7 +74,7 @@ configure -prefix C:\Qt\5.15.2\msvc2022_64 -opensource -confirm-license -release
           -nomake examples -nomake tests -opengl desktop -no-dbus -no-icu -platform win32-msvc
 jom && jom install
 ```
-The build took about 15 minutes on 32 threads, with 22 harmless compiler warnings and no errors. Installed modules include Core, Gui, Widgets, Network, Concurrent, Test, Sql (with the SQLite driver) and Xml.
+The build and install took about 3–4 minutes on 32 threads (measured from file timestamps), with 22 harmless compiler warnings and no errors. Installed modules include Core, Gui, Widgets, Network, Concurrent, Test, Sql (with the SQLite driver) and Xml.
 
 ### 2.2 Protobuf 3.x
 - Built **protobuf 3.21.12** (the last 3.x release, no abseil) with `-Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_MSVC_STATIC_RUNTIME=OFF -Dprotobuf_BUILD_SHARED_LIBS=OFF`. It is a static library linked against the dynamic CRT, so it matches Qt's `/MD`.
@@ -96,7 +96,7 @@ The build took about 15 minutes on 32 threads, with 22 harmless compiler warning
 
 ### 2.5 Build findings that change the plan
 1. **Compiler: VS 2022 (v143) instead of VS 2019 (v142).** The VS 2019 folder holds only an empty toolset stub, with no `cl.exe`. v143 is ABI-compatible with v142, and Qt 5.15.2 built cleanly with it. The Qt prefix is `msvc2022_64`, not `msvc2019_64`.
-2. **Qt and protobuf are release-only (`/MD`).** A CMake `Debug` build of our code would use `/MDd` and mix CRTs with the Qt DLLs, which is unsafe. So we use **`RelWithDebInfo`** for day-to-day work. It is fully debuggable, since Qt was built with `-force-debug-info` and PDBs are installed. A debug Qt build can be added later if it's really needed (~15 min).
+2. **Qt and protobuf are release-only (`/MD`).** A CMake `Debug` build of our code would use `/MDd` and mix CRTs with the Qt DLLs, which is unsafe. So we use **`RelWithDebInfo`** for day-to-day work. It is fully debuggable, since Qt was built with `-force-debug-info` and PDBs are installed. A debug Qt build can be added later if it's really needed (a few minutes).
 3. **No Ninja.** We use the `NMake Makefiles JOM` generator. Ninja can be added later; nothing depends on it.
 4. **Protobuf's CMake config lives in `<prefix>\cmake`** (the Windows layout). `CMAKE_PREFIX_PATH` must include `C:/deps/protobuf`. This is documented in the README.
 5. **The README must cover the Windows source-build route** for Qt (because there are no binary installers) as well as the simple `apt` route on Linux.
@@ -332,3 +332,30 @@ The task requires real history, not one giant commit. Planned commits:
 - History storage is **JSON** on the client side.
 - The server keeps no auth or TLS (out of scope).
 - Default port is `5555`. The default directory is the current directory unless `--dir` is given.
+
+---
+
+## 9. Implementation status (2026-11-15) ✅
+
+Everything in this plan is implemented, including the four bonus tasks.
+
+**Verified:**
+- Windows (MSVC 19.35, Qt 5.15.2, Protobuf 3.21.12): builds with no warnings; `fm_tests` 68/68 and `fm_gui_tests` 8/8 pass.
+- Ubuntu 22.04 in WSL (GCC 11.4, Qt 5.15.3, Protobuf 3.12.4): builds with `-Wall -Wextra` and no warnings; `fm_tests` 69/69 (one more test, for symlinks) and `fm_gui_tests` 8/8 pass.
+- `tools/run_valgrind.sh`: the server process, `fm_tests` and `fm_gui_tests` all finish with 0 errors and 0 bytes definitely or indirectly lost.
+
+**Where the code differs from the plan above:**
+1. **No `.ui` file.** The window is built in code (`MainWindow.cpp`), which keeps the build free of `uic`.
+2. **Request tracking is simpler.** `ServerConnection` only hands out request ids. `FileDownloader` remembers the id of its download and ignores replies for other ids. A separate map of pending requests turned out to be unnecessary with one download at a time.
+3. **Session ownership.** The server holds sessions in `std::vector<std::unique_ptr<ClientSession>>`. A session reports its closing through a *queued* signal, so it is never destroyed inside one of its own signal handlers. No `deleteLater()` is needed.
+4. **Extra libraries for testing.** The server logic (`fm_server_lib`), the client logic (`fm_client_core`) and the widgets (`fm_client_ui`) are static libraries. `fm_tests` and the new **`fm_gui_tests`** link them and drive the real server and the real window.
+5. **Name filter without regular expressions.** The first version used `QRegularExpression`; its JIT compiler makes valgrind report invalid reads (a known false alarm). A 30-line wildcard matcher replaced it.
+6. **Server logging.** On Windows, Qt drops log messages when stderr is redirected, so the server installs a handler that always writes to stderr with a timestamp.
+7. **Clean shutdown.** `ShutdownSignal` turns Ctrl+C (SIGINT/SIGTERM) into a normal exit, which valgrind needs to give a meaningful leak report for the server.
+8. **CMake on Windows.** CMake's `FindProtobuf` assumes a DLL under MSVC, so the top-level `CMakeLists.txt` sets `Protobuf_USE_STATIC_LIBS` by default there.
+9. **Valgrind noise found on the way.** Besides fontconfig and the Qt platform plugin (suppressed in `tools/valgrind.supp`), the WSL graphics driver produces thousands of reports unless `QT_XCB_GL_INTEGRATION=none` is set. The script sets it.
+
+**Not verified:**
+- Ctrl+C handling of the server on a real Windows console (it is verified on Linux, and the same code path is used).
+- The client was exercised through `fm_gui_tests` and screenshots, not by hand with a mouse.
+- The intermediate git commits were made after the whole tree built and passed; they are split by component, and the early ones do not build on their own.
