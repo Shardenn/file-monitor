@@ -1,0 +1,21 @@
+# Valgrind suppressions for leaks inside third-party libraries.
+#
+# These show up in any Qt GUI program, including an empty one: fontconfig
+# keeps its parsed configuration for the life of the process, and Qt's
+# platform plugins do not free everything at exit. None of them come from
+# File Monitor code. Each entry matches by library, so a leak in our own
+# code is still reported.
+
+{
+   fontconfig_configuration
+   Memcheck:Leak
+   ...
+   obj:*/libfontconfig.so*
+}
+
+{
+   qt_platform_plugin
+   Memcheck:Leak
+   ...
+   obj:*/plugins/platforms/libq*.so
+}
