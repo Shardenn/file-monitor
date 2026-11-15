@@ -30,7 +30,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    // The event history is loaded from and saved to `historyFilePath`.
+    explicit MainWindow(const QString& historyFilePath, QWidget* parent = nullptr);
     ~MainWindow() override;
 
 private:
@@ -38,6 +39,7 @@ private:
     QWidget* createFilterBar();
     QWidget* createActionBar();
     void connectSignals();
+    void setObjectNames();
 
     void toggleConnection();
     void onConnectionStateChanged(ServerConnection::State state, const QString& detail);

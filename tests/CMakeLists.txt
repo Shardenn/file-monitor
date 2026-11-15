@@ -39,3 +39,15 @@ add_executable(fm_tests
 target_link_libraries(fm_tests PRIVATE fm_server_lib fm_client_core ${FM_GTEST_TARGET})
 
 add_test(NAME fm_tests COMMAND fm_tests)
+
+# UI tests drive the real main window, so they need a display (or
+# QT_QPA_PLATFORM=offscreen / xvfb-run).
+add_executable(fm_gui_tests
+    GuiTestMain.cpp
+    TestUtils.h
+    MainWindowTest.cpp)
+
+target_link_libraries(fm_gui_tests PRIVATE fm_server_lib fm_client_ui ${FM_GTEST_TARGET})
+
+add_test(NAME fm_gui_tests COMMAND fm_gui_tests)
+set_tests_properties(fm_gui_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

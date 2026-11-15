@@ -22,6 +22,7 @@ FilePreviewDialog::FilePreviewDialog(const QString& fileName, const FilePreview&
 
     if (preview.isText) {
         auto* viewer = new QPlainTextEdit(this);
+        viewer->setObjectName(QStringLiteral("previewText"));
         viewer->setReadOnly(true);
         viewer->setLineWrapMode(QPlainTextEdit::NoWrap);
         viewer->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -36,6 +37,7 @@ FilePreviewDialog::FilePreviewDialog(const QString& fileName, const FilePreview&
         }
     } else {
         auto* message = new QLabel(QStringLiteral("No preview available (binary file)."), this);
+        message->setObjectName(QStringLiteral("noPreviewLabel"));
         message->setAlignment(Qt::AlignCenter);
         layout->addWidget(message, 1);
     }

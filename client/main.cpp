@@ -1,5 +1,6 @@
 #include <QApplication>
 
+#include "client/EventHistoryStore.h"
 #include "client/MainWindow.h"
 #include "common/Protocol.h"
 
@@ -11,7 +12,7 @@ int main(int argc, char* argv[])
         QApplication::setApplicationName(QStringLiteral("FileMonitorClient"));
         QApplication::setOrganizationName(QStringLiteral("FileMonitor"));
 
-        fm::MainWindow window;
+        fm::MainWindow window(fm::EventHistoryStore::defaultFilePath());
         window.show();
         exitCode = app.exec();
     }

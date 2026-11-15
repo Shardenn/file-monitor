@@ -22,9 +22,9 @@ namespace {
 constexpr int kStatusMessageMs = 8000;
 } // namespace
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(const QString& historyFilePath, QWidget* parent)
     : QMainWindow(parent)
-    , m_history(EventHistoryStore::defaultFilePath())
+    , m_history(historyFilePath)
 {
     setWindowTitle(QStringLiteral("File Monitor"));
     resize(860, 600);
@@ -40,7 +40,10 @@ MainWindow::MainWindow(QWidget* parent)
     m_table->verticalHeader()->hide();
     m_table->horizontalHeader()->setSectionResizeMode(EventTableModel::NameColumn,
                                                       QHeaderView::Stretch);
-    m_table->setColumnWidth(EventTableModel::TimeColumn, 160);
+    for (const int column : {EventTableModel::TimeColumn, EventTableModel::TypeColumn,
+                             EventTableModel::SizeColumn}) {
+        m_table->horizontalHeader()->setSectionResizeMode(column, QHeaderView::ResizeToContents);
+    }
 
     auto* central = new QWidget(this);
     auto* layout = new QVBoxLayout(central);
@@ -51,6 +54,7 @@ MainWindow::MainWindow(QWidget* parent)
     setCentralWidget(central);
 
     connectSignals();
+    setObjectNames();
 
     m_model.setRecords(m_history.load());
     m_table->scrollToBottom();
@@ -185,6 +189,24 @@ void MainWindow::connectSignals()
     connect(&m_downloader, &FileDownloader::failed, this, &MainWindow::onDownloadFailed);
     connect(&m_previewWatcher, &QFutureWatcherBase::finished, this,
             &MainWindow::onPreviewLoaded);
+}
+
+// Stable names let UI tests find the widgets.
+void MainWindow::setObjectNames()
+{
+    m_hostEdit->setObjectName(QStringLiteral("hostEdit"));
+    m_portSpin->setObjectName(QStringLiteral("portSpin"));
+    m_connectButton->setObjectName(QStringLiteral("connectButton"));
+    m_autoReconnectCheck->setObjectName(QStringLiteral("autoReconnectCheck"));
+    m_connectionLabel->setObjectName(QStringLiteral("connectionLabel"));
+    m_monitoringLabel->setObjectName(QStringLiteral("monitoringLabel"));
+    m_startButton->setObjectName(QStringLiteral("startButton"));
+    m_stopButton->setObjectName(QStringLiteral("stopButton"));
+    m_typeFilter->setObjectName(QStringLiteral("typeFilter"));
+    m_nameFilter->setObjectName(QStringLiteral("nameFilter"));
+    m_table->setObjectName(QStringLiteral("eventTable"));
+    m_downloadButton->setObjectName(QStringLiteral("downloadButton"));
+    m_progress->setObjectName(QStringLiteral("downloadProgress"));
 }
 
 void MainWindow::toggleConnection()
