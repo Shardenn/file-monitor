@@ -1,0 +1,83 @@
+// File Monitor wire protocol.
+//
+// Every message on the wire is an Envelope, prefixed with its serialized
+// length as a 4-byte big-endian unsigned integer.
+syntax = "proto3";
+
+package filemonitor.proto;
+
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  FILE_CREATED  = 1;
+  FILE_MODIFIED = 2;
+  FILE_DELETED  = 3;
+}
+
+// Server -> client, once right after the connection is accepted.
+message ServerHello {
+  uint32 protocol_version  = 1;
+  string watched_directory = 2;
+  bool   monitoring_active = 3;
+}
+
+// Server -> all clients.
+message FileEvent {
+  EventType type      = 1;
+  string    file_name = 2;
+  string    file_path = 3;
+  uint64    size      = 4;  // 0 for FILE_DELETED
+  int64     mtime_ms  = 5;  // unix time, ms; event time for FILE_DELETED
+  bytes     sha256    = 6;  // empty for FILE_DELETED or if the file was unreadable
+}
+
+message StartMonitoring {}
+message StopMonitoring {}
+
+message FileRequest {
+  string file_name = 1;  // name relative to the watched directory
+}
+
+// Client -> server.
+message ClientCommand {
+  uint64 request_id = 1;  // chosen by the client, echoed in replies
+  oneof action {
+    StartMonitoring start_monitoring = 2;
+    StopMonitoring  stop_monitoring  = 3;
+    FileRequest     file_request     = 4;
+  }
+}
+
+// Server -> requesting client: result of start/stop, or a refused/failed
+// file request.
+message CommandResult {
+  uint64 request_id = 1;
+  bool   success    = 2;
+  string message    = 3;  // human-readable status or error text
+}
+
+// Server -> all clients whenever monitoring is started or stopped.
+message MonitoringState {
+  bool active = 1;
+}
+
+// Server -> requesting client: one piece of a file.
+message FileChunk {
+  uint64 request_id = 1;
+  string file_name  = 2;
+  uint64 total_size = 3;
+  uint64 offset     = 4;
+  bytes  data       = 5;
+  bool   is_last    = 6;
+}
+
+// The only top-level message on the wire.
+message Envelope {
+  oneof body {
+    ServerHello     hello            = 1;
+    FileEvent       file_event       = 2;
+    ClientCommand   command          = 3;
+    CommandResult   command_result   = 4;
+    MonitoringState monitoring_state = 5;
+    FileChunk       file_chunk       = 6;
+  }
+}
