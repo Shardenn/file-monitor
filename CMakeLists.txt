@@ -30,9 +30,42 @@ else()
     add_compile_options(-Wall -Wextra)
 endif()
 
+# All programs go to one folder, so on Windows one copy of the Qt DLLs
+# serves all of them.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 add_subdirectory(common)
 add_subdirectory(server)
 add_subdirectory(client)
+
+# On Windows a program loads the first Qt5Core.dll it finds on PATH, and
+# other software (MiKTeX, Python packages, ...) often puts its own copy
+# there. With the right DLLs and plugins next to the programs they start
+# from anywhere, whatever PATH says.
+if(WIN32)
+    option(FM_DEPLOY_QT "Copy the Qt DLLs and plugins next to the programs" ON)
+    if(FM_DEPLOY_QT)
+        set(FM_BIN_DIR $<TARGET_FILE_DIR:fm_client>)
+        add_custom_target(fm_deploy_qt ALL
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Qt5::Core>
+                $<TARGET_FILE:Qt5::Network>
+                $<TARGET_FILE:Qt5::Concurrent>
+                $<TARGET_FILE:Qt5::Gui>
+                $<TARGET_FILE:Qt5::Widgets>
+                ${FM_BIN_DIR}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${FM_BIN_DIR}/platforms ${FM_BIN_DIR}/styles
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Qt5::QWindowsIntegrationPlugin> ${FM_BIN_DIR}/platforms
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Qt5::QOffscreenIntegrationPlugin> ${FM_BIN_DIR}/platforms
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Qt5::QWindowsVistaStylePlugin> ${FM_BIN_DIR}/styles
+            COMMENT "Copying the Qt DLLs and plugins next to the programs"
+            VERBATIM)
+        add_dependencies(fm_deploy_qt fm_client)
+    endif()
+endif()
 
 if(FM_BUILD_TESTS)
     enable_testing()

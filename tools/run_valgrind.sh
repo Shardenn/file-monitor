@@ -44,7 +44,7 @@ run() {
 server_session() {
     local dir port=5599 status=0
     dir="$(mktemp -d)"
-    "${VALGRIND[@]}" "$BUILD_DIR/server/fm_server" --dir "$dir" --port "$port" &
+    "${VALGRIND[@]}" "$BUILD_DIR/bin/fm_server" --dir "$dir" --port "$port" &
     local pid=$!
     sleep 5
     # Hold a connection open while files change, so events are sent to it.
@@ -62,11 +62,11 @@ server_session() {
 }
 
 run "server" server_session
-run "unit and integration tests" "${VALGRIND[@]}" "$BUILD_DIR/tests/fm_tests"
+run "unit and integration tests" "${VALGRIND[@]}" "$BUILD_DIR/bin/fm_tests"
 # The UI does not use OpenGL. Not loading the GL driver keeps its (large)
 # valgrind noise out of the report; this matters most under WSL.
 export QT_XCB_GL_INTEGRATION=none
-run "client UI tests" xvfb-run -a "${VALGRIND[@]}" "$BUILD_DIR/tests/fm_gui_tests"
+run "client UI tests" xvfb-run -a "${VALGRIND[@]}" "$BUILD_DIR/bin/fm_gui_tests"
 
 echo
 if [ "$failed" -eq 0 ]; then

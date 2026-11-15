@@ -65,7 +65,7 @@ cmake -S . -B build -G "NMake Makefiles JOM" -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
       -DCMAKE_PREFIX_PATH="C:/Qt/5.15.2/msvc2022_64;C:/deps/protobuf"
 cmake --build build
 ```
-To run, `C:\Qt\5.15.2\msvc2022_64\bin` must be on `PATH` (or use `windeployqt`). The client also needs `plugins\platforms\qwindows.dll`, which `windeployqt` copies.
+All programs are built into `buildin`, and the build copies the Qt DLLs and plugins there (`FM_DEPLOY_QT`), so they run without Qt on `PATH`. This Qt build has no `windeployqt` (it is part of qttools, not qtbase), so CMake does the copying itself.
 
 ### 2.1 Qt 5.15.2
 The archive at `https://download.qt.io/archive/qt/5.15/5.15.2/` has **only source packages**, because open-source offline installers stopped with 5.15. qtbase was built from `submodules/qtbase-everywhere-src-5.15.2.zip`:
@@ -354,6 +354,8 @@ Everything in this plan is implemented, including the four bonus tasks.
 7. **Clean shutdown.** `ShutdownSignal` turns Ctrl+C (SIGINT/SIGTERM) into a normal exit, which valgrind needs to give a meaningful leak report for the server.
 8. **CMake on Windows.** CMake's `FindProtobuf` assumes a DLL under MSVC, so the top-level `CMakeLists.txt` sets `Protobuf_USE_STATIC_LIBS` by default there.
 9. **Valgrind noise found on the way.** Besides fontconfig and the Qt platform plugin (suppressed in `tools/valgrind.supp`), the WSL graphics driver produces thousands of reports unless `QT_XCB_GL_INTEGRATION=none` is set. The script sets it.
+
+10. **Programs in `build/bin` with Qt next to them (Windows).** Found when a second client was started by hand: `PATH` on this machine contains MiKTeX's own `Qt5Core.dll`, which the client loaded instead of ours and then failed with "no Qt platform plugin could be initialized". The build now copies the right DLLs and plugins next to the programs.
 
 **Not verified:**
 - Ctrl+C handling of the server on a real Windows console (it is verified on Linux, and the same code path is used).

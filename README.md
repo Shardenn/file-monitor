@@ -85,7 +85,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
 
-The programs are `build/server/fm_server` and `build/client/fm_client`.
+The programs are in `build/bin`: `fm_server` and `fm_client`.
 
 ## Build on Windows
 
@@ -127,14 +127,12 @@ Use `RelWithDebInfo` or `Release`, not `Debug`: the Qt and Protobuf builds
 above are release builds, and MSVC does not allow mixing debug and release
 runtimes in one program.
 
-The programs need the Qt DLLs at run time. Either add
-`C:\Qt\5.15.2\msvc2022_64\bin` to `PATH`, or copy the DLLs next to the
-programs:
-
-```bat
-C:\Qt\5.15.2\msvc2022_64\bin\windeployqt.exe build\client\fm_client.exe
-C:\Qt\5.15.2\msvc2022_64\bin\windeployqt.exe build\server\fm_server.exe
-```
+The programs are in `buildin`: `fm_server.exe` and `fm_client.exe`. The build
+copies the Qt DLLs and plugins they need into the same folder, so they start
+from anywhere and do not depend on `PATH`. (This matters: other software, for
+example MiKTeX, often puts its own, incompatible `Qt5Core.dll` on `PATH`, and a
+program that picks it up fails with "no Qt platform plugin could be
+initialized".) Pass `-DFM_DEPLOY_QT=OFF` to skip the copying.
 
 googletest is downloaded during configuration. Pass `-DFM_BUILD_TESTS=OFF` to
 build without the tests and without network access.
@@ -157,7 +155,7 @@ fm_server [--dir <path>] [--port <port>] [--address <ip>]
 Example:
 
 ```bash
-./build/server/fm_server --dir /srv/shared --port 5555
+./build/bin/fm_server --dir /srv/shared --port 5555
 ```
 
 The server logs connections and events to the console. Stop it with Ctrl+C.
@@ -165,7 +163,7 @@ The server logs connections and events to the console. Stop it with Ctrl+C.
 ### Client
 
 ```bash
-./build/client/fm_client
+./build/bin/fm_client
 ```
 
 1. Enter the server IP and port and press **Connect**. The coloured line below
@@ -308,8 +306,8 @@ modification time) with the previous one. Notifications are collected for
 cd build && ctest --output-on-failure
 ```
 
-Or run the programs directly: `build/tests/fm_tests` and
-`build/tests/fm_gui_tests`. On Windows the Qt `bin` folder must be on `PATH`.
+Or run the programs directly: `build/bin/fm_tests` and
+`build/bin/fm_gui_tests`.
 
 - **`fm_tests`**: the frame decoder (byte-by-byte input, every possible split
   point, several frames per read, oversized and corrupt frames), snapshot
@@ -348,7 +346,7 @@ Two notes for running valgrind by hand:
 - Any Qt GUI program, even an empty one, shows a few small leaks inside
   fontconfig and Qt's platform plugin. [`tools/valgrind.supp`](tools/valgrind.supp)
   hides those two libraries and nothing else:
-  `valgrind --leak-check=full --suppressions=tools/valgrind.supp build/client/fm_client`.
+  `valgrind --leak-check=full --suppressions=tools/valgrind.supp build/bin/fm_client`.
   Under WSL also set `QT_XCB_GL_INTEGRATION=none`, otherwise the WSL graphics
   driver adds thousands of reports of its own.
 
