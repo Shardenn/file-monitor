@@ -1,29 +1,41 @@
 #include "client/EventFilterProxy.h"
 
-#include <QRegularExpression>
-
 #include "client/EventTableModel.h"
 
 namespace fm {
 
-namespace {
-
-// Converts a pattern with * and ? into an unanchored regular expression.
-QString wildcardToRegex(const QString& pattern)
+// Classic greedy matching with backtracking to the last *. A plain loop
+// instead of QRegularExpression: the patterns are tiny, and the regex JIT
+// produces false alarms under valgrind.
+bool matchesWildcard(const QString& pattern, const QString& text)
 {
-    QString regex;
-    for (const QChar ch : pattern) {
-        if (ch == QLatin1Char('*'))
-            regex += QStringLiteral(".*");
-        else if (ch == QLatin1Char('?'))
-            regex += QLatin1Char('.');
-        else
-            regex += QRegularExpression::escape(QString(ch));
-    }
-    return regex;
-}
+    int p = 0;
+    int t = 0;
+    int starInPattern = -1;
+    int starInText = 0;
 
-} // namespace
+    while (t < text.size()) {
+        if (p < pattern.size() && pattern[p] == QLatin1Char('*')) {
+            starInPattern = p++;
+            starInText = t;
+        } else if (p < pattern.size()
+                   && (pattern[p] == QLatin1Char('?')
+                       || pattern[p].toCaseFolded() == text[t].toCaseFolded())) {
+            ++p;
+            ++t;
+        } else if (starInPattern >= 0) {
+            // Let the last * swallow one more character and retry.
+            p = starInPattern + 1;
+            t = ++starInText;
+        } else {
+            return false;
+        }
+    }
+
+    while (p < pattern.size() && pattern[p] == QLatin1Char('*'))
+        ++p;
+    return p == pattern.size();
+}
 
 EventFilterProxy::EventFilterProxy(QObject* parent)
     : QSortFilterProxyModel(parent)
@@ -40,18 +52,17 @@ void EventFilterProxy::setTypeFilter(pb::EventType type)
 
 void EventFilterProxy::setNameFilter(const QString& pattern)
 {
-    const QString trimmed = pattern.trimmed();
-    m_hasNamePattern = !trimmed.isEmpty();
-    if (m_hasNamePattern) {
-        const bool hasWildcards =
-            trimmed.contains(QLatin1Char('*')) || trimmed.contains(QLatin1Char('?'));
-        // With wildcards the pattern must match the whole name.
-        const QString regex = hasWildcards
-            ? QLatin1Char('^') + wildcardToRegex(trimmed) + QLatin1Char('$')
-            : QRegularExpression::escape(trimmed);
-        m_namePattern =
-            QRegularExpression(regex, QRegularExpression::CaseInsensitiveOption);
-    }
+    QString normalized = pattern.trimmed();
+    const bool hasWildcards =
+        normalized.contains(QLatin1Char('*')) || normalized.contains(QLatin1Char('?'));
+    // Plain text matches anywhere in the name; a pattern with wildcards
+    // must match the whole name.
+    if (!normalized.isEmpty() && !hasWildcards)
+        normalized = QLatin1Char('*') + normalized + QLatin1Char('*');
+
+    if (m_namePattern == normalized)
+        return;
+    m_namePattern = normalized;
     invalidateFilter();
 }
 
@@ -65,7 +76,7 @@ bool EventFilterProxy::filterAcceptsRow(int sourceRow, const QModelIndex& source
     const EventRecord& record = model->recordAt(sourceRow);
     if (m_type != pb::EVENT_TYPE_UNSPECIFIED && record.type != m_type)
         return false;
-    if (m_hasNamePattern && !m_namePattern.match(record.fileName).hasMatch())
+    if (!m_namePattern.isEmpty() && !matchesWildcard(m_namePattern, record.fileName))
         return false;
     return true;
 }

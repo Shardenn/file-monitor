@@ -95,6 +95,26 @@ TEST(EventTableModel, DropsOldestRowsBeyondTheLimit)
     EXPECT_EQ(model.rowCount(), 0);
 }
 
+TEST(EventFilterProxy, WildcardMatching)
+{
+    EXPECT_TRUE(fm::matchesWildcard("", ""));
+    EXPECT_FALSE(fm::matchesWildcard("", "a"));
+    EXPECT_TRUE(fm::matchesWildcard("*", ""));
+    EXPECT_TRUE(fm::matchesWildcard("*", "anything.txt"));
+    EXPECT_TRUE(fm::matchesWildcard("*.txt", "notes.txt"));
+    EXPECT_FALSE(fm::matchesWildcard("*.txt", "notes.txt.bak"));
+    EXPECT_TRUE(fm::matchesWildcard("a*b*c", "a-b-b-c"));
+    EXPECT_FALSE(fm::matchesWildcard("a*b*c", "a-b-b"));
+    EXPECT_TRUE(fm::matchesWildcard("?.txt", "a.txt"));
+    EXPECT_FALSE(fm::matchesWildcard("?.txt", ".txt"));
+    EXPECT_FALSE(fm::matchesWildcard("?", ""));
+    EXPECT_TRUE(fm::matchesWildcard("REPORT*", "report.PDF"));
+    EXPECT_TRUE(fm::matchesWildcard("***a***", "a"));
+    EXPECT_TRUE(fm::matchesWildcard("*aab", "aaab"));
+    EXPECT_FALSE(fm::matchesWildcard("a.b", "axb")); // the dot is literal
+    EXPECT_TRUE(fm::matchesWildcard(QString::fromUtf8("*ЁЖ*"), QString::fromUtf8("чижик-ёжик")));
+}
+
 TEST(EventFilterProxy, FiltersByTypeAndName)
 {
     fm::EventTableModel model;

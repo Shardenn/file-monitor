@@ -1,11 +1,14 @@
 #pragma once
 
-#include <QRegularExpression>
 #include <QSortFilterProxyModel>
 
 #include "common/Protocol.h"
 
 namespace fm {
+
+// Case-insensitive match of `text` against a pattern where * stands for any
+// run of characters (including none) and ? for exactly one character.
+bool matchesWildcard(const QString& pattern, const QString& text);
 
 // Shows only the events that match the chosen type and file name.
 // The source model must be an EventTableModel.
@@ -27,8 +30,7 @@ protected:
 
 private:
     pb::EventType m_type = pb::EVENT_TYPE_UNSPECIFIED;
-    QRegularExpression m_namePattern;
-    bool m_hasNamePattern = false;
+    QString m_namePattern; // empty: no name filter
 };
 
 } // namespace fm
